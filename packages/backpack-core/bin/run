@@ -1,0 +1,55 @@
+#! /usr/bin/env node
+const webpack = require('webpack')
+const paths = require('../config/paths')
+const once = require('ramda').once
+const defaultConfig = require('../config/webpack.config')
+const path = require('path')
+const fs = require('fs')
+const parseArgs = require('minimist')
+
+const options = {
+  env: 'development'
+}
+
+const configPath = path.resolve('backpack.config.js')
+let userConfig = {}
+
+if (fs.existsSync(configPath)) {
+  const userConfigModule = require(configPath)
+  userConfig = userConfigModule.default || userConfigModule
+}
+
+const serverConfig = userConfig.webpack
+      ? userConfig.webpack(defaultConfig(options), options, webpack)
+      : defaultConfig(options)
+
+process.on('SIGINT', process.exit)
+
+const args = parseArgs(process.argv.slice(2), { '--': true })
+if (args._.length > 1) {
+  console.log('can not run multi script')
+  process.exit(1)
+}
+
+let entry = args._[0]
+if (!entry[0] in ['.', '/']) {
+  entry = './' + entry
+}
+
+serverConfig.entry = { script: entry }
+
+const serverCompiler = webpack(serverConfig)
+
+const serverPaths = Object
+  .keys(serverCompiler.options.entry)
+  .map(entry => path.join(serverCompiler.options.output.path, `${entry}.js`))
+
+serverCompiler.run((err, status) => {
+  if (err) {
+    console.log(err)
+    process.exit(255)
+  } else {
+    process.argv = process.argv.slice(0, 2).concat(args['--'])
+    require(serverPaths[0])
+  }
+})
