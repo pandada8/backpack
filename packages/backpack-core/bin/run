@@ -38,6 +38,14 @@ if (!entry[0] in ['.', '/']) {
 
 serverConfig.entry = { script: entry }
 
+// HACK! disable annoying friendlyOutputPlugins console cleaning.
+serverConfig.plugins.some(x => {
+  if (x.shouldClearConsole !== undefined) {
+    x.shouldClearConsole = false
+    return true
+  }
+})
+
 const serverCompiler = webpack(serverConfig)
 
 const serverPaths = Object
@@ -49,7 +57,7 @@ serverCompiler.run((err, status) => {
     console.log(err)
     process.exit(255)
   } else {
-    process.argv = process.argv.slice(0, 2).concat(args['--'])
-    require(serverPaths[0])
+    process.argv = process.argv.slice(0, 1).concat([serverPaths[0]], args['--'])
+    require(serverPaths[0]) // using spawn instead ?
   }
 })
